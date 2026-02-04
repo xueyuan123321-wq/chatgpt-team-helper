@@ -1588,6 +1588,11 @@ router.put('/rbac/users/:id/roles', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user id' })
     }
 
+    const currentUserId = Number(req.user?.id)
+    if (Number.isFinite(currentUserId) && currentUserId === userId) {
+      return res.status(400).json({ error: '超级管理员不能修改自己的角色' })
+    }
+
     const roleKeys = Array.isArray(req.body?.roleKeys)
       ? req.body.roleKeys.map(String).map(s => s.trim()).filter(Boolean)
       : []

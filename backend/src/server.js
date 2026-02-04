@@ -10,6 +10,7 @@ import openaiAccountsRoutes from './routes/openai-accounts.js'
 import linuxDoAuthRoutes from './routes/linuxdo-auth.js'
 import waitingRoomRoutes from './routes/waiting-room.js'
 import configRoutes from './routes/config.js'
+import versionRoutes from './routes/version.js'
 import xhsRoutes from './routes/xhs.js'
 import xianyuRoutes from './routes/xianyu.js'
 import openAccountsRoutes from './routes/open-accounts.js'
@@ -125,6 +126,7 @@ app.use('/api/redemption-codes', redemptionCodesRoutes)
 app.use('/api/openai-accounts', openaiAccountsRoutes)
 app.use('/api/linuxdo', linuxDoAuthRoutes)
 app.use('/api/config', configRoutes)
+app.use('/api/version', versionRoutes)
 app.use('/api/waiting-room', waitingRoomRoutes)
 app.use('/api/xhs', xhsRoutes)
 app.use('/api/xianyu', xianyuRoutes)

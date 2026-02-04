@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { authService, userService, adminService } from '@/services/api'
+import { authService, userService, adminService, versionService } from '@/services/api'
+import type { VersionInfo, LatestVersionInfo } from '@/services/api'
 import { useAppConfigStore } from '@/stores/appConfig'
 import {
   Card,
@@ -19,7 +20,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Eye, EyeOff, Sparkles, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-vue-next'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Eye, EyeOff, Sparkles, KeyRound, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-vue-next'
+
+// 版本检查相关
+const versionLoading = ref(false)
+const versionDialogOpen = ref(false)
+const currentVersion = ref<VersionInfo | null>(null)
+const latestVersion = ref<LatestVersionInfo | null>(null)
+const versionError = ref('')
+
+const hasNewVersion = computed(() => {
+  if (!currentVersion.value || !latestVersion.value) return false
+  return currentVersion.value.version !== latestVersion.value.version
+})
+
+const checkForUpdates = async () => {
+  versionLoading.value = true
+  versionError.value = ''
+  currentVersion.value = null
+  latestVersion.value = null
+
+  try {
+    const [current, latest] = await Promise.all([
+      versionService.getVersion(),
+      versionService.getLatest().catch(err => {
+        if (err.response?.status === 404) {
+          return null
+        }
+        throw err
+      })
+    ])
+    currentVersion.value = current
+    latestVersion.value = latest
+    versionDialogOpen.value = true
+  } catch (err: any) {
+    versionError.value = err.response?.data?.error || '检查更新失败'
+    versionDialogOpen.value = true
+  } finally {
+    versionLoading.value = false
+  }
+}
 
 // API密钥相关
 const apiKey = ref('')
@@ -789,6 +836,77 @@ const savePointsWithdrawSettings = async () => {
 
 <template>
   <div class="space-y-8">
+    <!-- 页面头部：检查更新按钮 -->
+    <div v-if="isSuperAdmin" class="flex justify-end">
+      <Button
+        variant="outline"
+        :disabled="versionLoading"
+        class="h-10 px-4 border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
+        @click="checkForUpdates"
+      >
+        <RefreshCw v-if="versionLoading" class="w-4 h-4 mr-2 animate-spin" />
+        <RefreshCw v-else class="w-4 h-4 mr-2" />
+        检查更新
+      </Button>
+    </div>
+
+    <!-- 版本检查对话框 -->
+    <Dialog v-model:open="versionDialogOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle class="text-xl font-bold text-gray-900">版本信息</DialogTitle>
+          <DialogDescription class="text-gray-500">
+            查看当前版本和最新版本信息
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="space-y-4 py-4">
+          <div v-if="versionError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
+            {{ versionError }}
+          </div>
+
+          <template v-else>
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <div class="space-y-1">
+                <p class="text-sm text-gray-500">当前版本</p>
+                <p class="font-mono font-semibold text-gray-900">{{ currentVersion?.version || '-' }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between p-4 rounded-2xl border" :class="hasNewVersion ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'">
+              <div class="space-y-1">
+                <p class="text-sm" :class="hasNewVersion ? 'text-green-600' : 'text-gray-500'">最新版本</p>
+                <p class="font-mono font-semibold" :class="hasNewVersion ? 'text-green-700' : 'text-gray-900'">
+                  {{ latestVersion?.version || '尚未发布' }}
+                </p>
+                <p v-if="latestVersion?.publishedAt" class="text-xs text-gray-400">
+                  发布于 {{ new Date(latestVersion.publishedAt).toLocaleDateString('zh-CN') }}
+                </p>
+              </div>
+              <div v-if="hasNewVersion" class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">有新版本</span>
+              </div>
+            </div>
+
+            <div v-if="hasNewVersion && latestVersion?.htmlUrl" class="pt-2">
+              <a
+                :href="latestVersion.htmlUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center w-full h-11 px-4 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors"
+              >
+                前往 GitHub 查看新版本
+              </a>
+            </div>
+
+            <div v-else-if="!hasNewVersion && currentVersion" class="text-center text-sm text-gray-500 py-2">
+              已是最新版本
+            </div>
+          </template>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <div class="grid gap-8 lg:grid-cols-2">
       <!-- 非超级管理员提示 -->
       <Card

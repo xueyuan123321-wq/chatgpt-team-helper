@@ -22,6 +22,9 @@ const isSuperAdmin = computed(() => {
   return Array.isArray(user?.roles) && user.roles.includes('super_admin')
 })
 
+const currentUserId = computed(() => Number(authService.getCurrentUser()?.id) || 0)
+const isCurrentUser = (userId: number) => currentUserId.value !== 0 && currentUserId.value === userId
+
 const listLoading = ref(false)
 const error = ref('')
 const success = ref('')
@@ -114,6 +117,12 @@ const handleRoleChange = async (user: RbacUser) => {
   if (!user?.id) return
   error.value = ''
   success.value = ''
+
+  if (isSuperAdmin.value && isCurrentUser(user.id)) {
+    userRoleDrafts.value[user.id] = String(user.roles?.[0]?.roleKey || '')
+    showErrorToast('超级管理员不能修改自己的角色')
+    return
+  }
 
   const nextRoleKey = String(userRoleDrafts.value[user.id] || '').trim()
   const previousRoleKey = String(user.roles?.[0]?.roleKey || '')
@@ -738,8 +747,9 @@ onMounted(async () => {
                 <td class="px-6 py-5">
                   <select
                     v-model="userRoleDrafts[user.id]"
-                    :disabled="roleUpdating[user.id]"
+                    :disabled="roleUpdating[user.id] || isCurrentUser(user.id)"
                     class="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    :title="isCurrentUser(user.id) ? '超级管理员不能修改自己的角色' : undefined"
                     @change="handleRoleChange(user)"
                   >
                     <option value="" disabled>选择角色</option>
